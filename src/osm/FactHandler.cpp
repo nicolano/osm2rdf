@@ -71,6 +71,7 @@ using osm2rdf::ttl::constants::NAMESPACE__OSM2RDF;
 using osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_GEOM;
 using osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_META;
 using osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_TAG;
+using osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_MEMBER;
 using osm2rdf::ttl::constants::NAMESPACE__OSM_NODE;
 using osm2rdf::ttl::constants::NAMESPACE__OSM_RELATION;
 using osm2rdf::ttl::constants::NAMESPACE__OSM_TAG;
@@ -197,7 +198,7 @@ void osm2rdf::osm::FactHandler<W>::relation(
     const std::string& node_id = "osmrel" + std::to_string(relation.id()) + "_"
                                  + type + std::to_string(member.id()) + "_"
                                  + std::to_string(inRelPos++);
-    const std::string& node = generateIRI(NAMESPACE__OSM2RDF_MEMBER, node_id);
+    const std::string& node = _writer->generateIRI(NAMESPACE__OSM2RDF_MEMBER, node_id);
     _writer->writeTriple(subj, _writer->generateIRIUnsafe(NAMESPACE__OSM_RELATION, "member"), node);
     _writer->writeTriple(node, IRI__OSM2RDF_MEMBER__ID,
                          _writer->generateIRI(type, member.id()));
@@ -257,7 +258,7 @@ void osm2rdf::osm::FactHandler<W>::way(const osm2rdf::osm::Way& way) {
       const std::string& obj_id = "osmway" + std::to_string(way.id()) + "_"
                              + std::to_string(node.id()) + "_"
                              + std::to_string(wayOrder++);
-      const std::string& obj = generateIRI(NAMESPACE__OSM2RDF_MEMBER, obj_id);
+      const std::string& obj = _writer->generateIRI(NAMESPACE__OSM2RDF_MEMBER, obj_id);
       _writer->writeTriple(subj, IRI__OSMWAY_NODE, obj);
 
       _writer->writeTriple(
@@ -293,7 +294,7 @@ void osm2rdf::osm::FactHandler<W>::way(const osm2rdf::osm::Way& way) {
             lastBlankNode, IRI__OSMWAY_NEXT_NODE_DISTANCE,
             std::to_string(distance), "^^" + IRI__XSD_DECIMAL);
       }
-      lastBlankNode = blankNode;
+      lastBlankNode = obj;
       lastNode = node;
     }
   }
