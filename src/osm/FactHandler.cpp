@@ -195,9 +195,9 @@ void osm2rdf::osm::FactHandler<W>::relation(
     }
 
     const std::string& role = member.role();
-    const std::string& node_id = "osmrel" + std::to_string(relation.id()) + "_"
-                                 + type + std::to_string(member.id()) + "_"
-                                 + std::to_string(inRelPos++);
+    const std::string& node_id = "osmrel_" + std::to_string(relation.id()) + "_"
+                                 + type + "_" + std::to_string(member.id()) + "_"
+                                 + std::to_string(inRelPos);
     const std::string& node = _writer->generateIRI(NAMESPACE__OSM2RDF_MEMBER, node_id);
     _writer->writeTriple(subj, _writer->generateIRIUnsafe(NAMESPACE__OSM_RELATION, "member"), node);
     _writer->writeTriple(node, IRI__OSM2RDF_MEMBER__ID,
@@ -205,7 +205,7 @@ void osm2rdf::osm::FactHandler<W>::relation(
     _writer->writeTriple(node, IRI__OSM2RDF_MEMBER__ROLE,
                          _writer->generateLiteral(role));
     _writer->writeLiteralTripleUnsafe(node, IRI__OSM2RDF_MEMBER__POS,
-                                      std::to_string(inRelPos),
+                                      std::to_string(inRelPos++),
                                       "^^" + IRI__XSD_INTEGER);
   }
 
@@ -255,9 +255,9 @@ void osm2rdf::osm::FactHandler<W>::way(const osm2rdf::osm::Way& way) {
     std::string lastBlankNode;
     auto lastNode = way.nodes().front();
     for (const auto& node : way.nodes()) {
-      const std::string& obj_id = "osmway" + std::to_string(way.id()) + "_"
-                             + std::to_string(node.id()) + "_"
-                             + std::to_string(wayOrder++);
+      const std::string& obj_id = "osmway_" + std::to_string(way.id()) + "_"
+                             + "osmnode_" + std::to_string(node.id()) + "_"
+                             + std::to_string(wayOrder);
       const std::string& obj = _writer->generateIRI(NAMESPACE__OSM2RDF_MEMBER, obj_id);
       _writer->writeTriple(subj, IRI__OSMWAY_NODE, obj);
 
@@ -267,7 +267,7 @@ void osm2rdf::osm::FactHandler<W>::way(const osm2rdf::osm::Way& way) {
                                node.id()));
 
       _writer->writeLiteralTripleUnsafe(obj, IRI__OSM2RDF_MEMBER__POS,
-                                        std::to_string(wayOrder),
+                                        std::to_string(wayOrder++),
                                         "^^" + IRI__XSD_INTEGER);
 
       if (_config.addWayNodeSpatialMetadata && !lastBlankNode.empty()) {
