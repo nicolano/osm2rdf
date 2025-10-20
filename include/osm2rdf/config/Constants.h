@@ -1,4 +1,4 @@
-// Copyright 2020 - 2022, University of Freiburg
+// Copyright 2020 - 2025, University of Freiburg
 // Authors: Axel Lehmann <lehmann@cs.uni-freiburg.de>
 //          Patrick Brosi <brosi@cs.uni-freiburg.de>
 //          Hannah Bast <bast@cs.uni-freiburg.de>
@@ -38,8 +38,8 @@ const static inline std::string SECTION_IO =
     SECTION_MARKER + " I/O " + SECTION_MARKER;
 const static inline std::string SECTION_FACTS =
     SECTION_MARKER + " Facts " + SECTION_MARKER;
-const static inline std::string SECTION_CONTAINS =
-    SECTION_MARKER + " Contains " + SECTION_MARKER;
+const static inline std::string SECTION_SPATIAL_RELATION_TRIPLES =
+    SECTION_MARKER + " Spatial relations " + SECTION_MARKER;
 const static inline std::string SECTION_MISCELLANEOUS =
     SECTION_MARKER + " Miscellaneous " + SECTION_MARKER;
 const static inline std::string SECTION_OPENMP =
@@ -80,7 +80,7 @@ const static inline std::string OUTPUT_COMPRESS_OPTION_SHORT = "";
 const static inline std::string OUTPUT_COMPRESS_OPTION_LONG =
     "output-compression";
 const static inline std::string OUTPUT_COMPRESS_OPTION_HELP =
-    "Output file compression, valid values: none, bz2, gz2";
+    "Output file compression, valid values: none, bz2, gz";
 
 const static inline std::string STORE_LOCATIONS_INFO =
     "Storing locations osmium locations:";
@@ -89,6 +89,14 @@ const static inline std::string STORE_LOCATIONS_LONG = "store-locations";
 const static inline std::string STORE_LOCATIONS_HELP =
     "Method used to store locations, valid values: mem-flex (default), "
     "mem-dense, disk-sparse, disk-dense ";
+
+const static inline std::string NO_OSM_METADATA_INFO =
+    "Not outputting OSM metadata";
+const static inline std::string NO_OSM_METADATA_OPTION_SHORT = "";
+const static inline std::string NO_OSM_METADATA_OPTION_LONG = "no-osm-metadata";
+const static inline std::string NO_OSM_METADATA_OPTION_HELP =
+    "Do not output OSM metadata (user, timestamp, changeset, visibility and "
+    "version)";
 
 const static inline std::string NO_FACTS_INFO = "Not dumping facts";
 const static inline std::string NO_FACTS_OPTION_SHORT = "";
@@ -175,6 +183,24 @@ const static inline std::string NO_WAY_GEOM_RELATIONS_OPTION_LONG =
 const static inline std::string NO_WAY_GEOM_RELATIONS_OPTION_HELP =
     "Do not dump way geometric relations";
 
+const static inline std::string ADD_ZERO_FACT_NUMBER_INFO =
+  "Also output osm2rdf:fact triples with fact number 0";
+const static inline std::string ADD_ZERO_FACT_NUMBER_OPTION_SHORT = "";
+const static inline std::string ADD_ZERO_FACT_NUMBER_OPTION_LONG =
+  "add-zero-fact-number";
+const static inline std::string ADD_ZERO_FACT_NUMBER_OPTION_HELP =
+  "Also output osm2rdf:fact triples with fact number 0, that is, "
+  "for untagged nodes, ways, relations and areas";
+
+
+const static inline std::string UNTAGGED_NODES_SPATIAL_RELS_INFO =
+    "Compute spatial relations involving untagged nodes";
+const static inline std::string UNTAGGED_NODES_SPATIAL_RELS_OPTION_SHORT = "";
+const static inline std::string UNTAGGED_NODES_SPATIAL_RELS_OPTION_LONG =
+    "add-untagged-nodes-geometric-relations";
+const static inline std::string UNTAGGED_NODES_SPATIAL_RELS_OPTION_HELP =
+    "Compute spatial relations involving untagged nodes";
+
 const static inline std::string NO_UNTAGGED_NODES_INFO =
     "Do not output untagged nodes";
 const static inline std::string NO_UNTAGGED_NODES_OPTION_SHORT = "";
@@ -182,6 +208,14 @@ const static inline std::string NO_UNTAGGED_NODES_OPTION_LONG =
     "no-untagged-nodes";
 const static inline std::string NO_UNTAGGED_NODES_OPTION_HELP =
     "Do not output untagged nodes";
+
+const static inline std::string IRI_PREFIX_FOR_UNTAGGED_NODES_INFO =
+    "IRI prefix for untagged nodes: ";
+const static inline std::string IRI_PREFIX_FOR_UNTAGGED_NODES_OPTION_SHORT = "";
+const static inline std::string IRI_PREFIX_FOR_UNTAGGED_NODES_OPTION_LONG =
+    "iri-prefix-for-untagged-nodes";
+const static inline std::string IRI_PREFIX_FOR_UNTAGGED_NODES_OPTION_HELP =
+    "IRI prefix for untagged nodes; when empty, use same as for tagged nodes";
 
 const static inline std::string NO_UNTAGGED_WAYS_INFO =
     "Do not output untagged ways";
@@ -215,12 +249,34 @@ const static inline std::string ADD_AREA_WAY_LINESTRINGS_OPTION_LONG =
 const static inline std::string ADD_AREA_WAY_LINESTRINGS_OPTION_HELP =
     "Add linestrings for ways which form areas";
 
-const static inline std::string NO_ADD_CENTROIDS_INFO =
-    "Do not add centroid information";
-const static inline std::string NO_ADD_CENTROIDS_OPTION_SHORT = "";
-const static inline std::string NO_ADD_CENTROIDS_OPTION_LONG = "no-hascentroid";
-const static inline std::string NO_ADD_CENTROIDS_OPTION_HELP =
-    "Don't add geo:hasCentroid triples";
+const static inline std::string ADD_CENTROID_INFO =
+    "Adding a geo:hasCentroid triple for each geometry";
+const static inline std::string ADD_CENTROID_OPTION_SHORT = "";
+const static inline std::string ADD_CENTROID_OPTION_LONG = "add-hascentroid";
+const static inline std::string ADD_CENTROID_OPTION_HELP =
+    "Add a geo:hasCentroid triple for each geometry";
+
+const static inline std::string ADD_ENVELOPE_INFO =
+  "Adding a geo:hasEnvelope triple for each geometry";
+const static inline std::string ADD_ENVELOPE_OPTION_SHORT = "";
+const static inline std::string ADD_ENVELOPE_OPTION_LONG = "add-hasenvelope";
+const static inline std::string ADD_ENVELOPE_OPTION_HELP =
+    "Add a geo:hasEnvelope triple for each geometry";
+
+const static inline std::string ADD_OBB_INFO =
+  "Adding a geo:hasObb triple for each geometry";
+const static inline std::string ADD_OBB_OPTION_SHORT = "";
+const static inline std::string ADD_OBB_OPTION_LONG = "add-hasobb";
+const static inline std::string ADD_OBB_OPTION_HELP =
+    "Add a geo:hasObb triple for each geometry";
+
+const static inline std::string ADD_CONVEX_HULL_INFO =
+  "Adding a geo:hasConvexHull triple for each geometry";
+const static inline std::string ADD_CONVEX_HULL_OPTION_SHORT = "";
+const static inline std::string ADD_CONVEX_HULL_OPTION_LONG =
+    "add-hasconvexhull";
+const static inline std::string ADD_CONVEX_HULL_OPTION_HELP =
+  "Add a geo:hasConvexHull triple for each geometry";
 
 const static inline std::string ADD_WAY_METADATA_INFO = "Adding way metadata";
 const static inline std::string ADD_WAY_METADATA_OPTION_SHORT = "";
@@ -229,13 +285,13 @@ const static inline std::string ADD_WAY_METADATA_OPTION_LONG =
 const static inline std::string ADD_WAY_METADATA_OPTION_HELP =
     "Add information about the way structure";
 
-const static inline std::string ADD_WAY_NODE_ORDER_INFO =
-    "Adding way node order";
-const static inline std::string ADD_WAY_NODE_ORDER_OPTION_SHORT = "";
-const static inline std::string ADD_WAY_NODE_ORDER_OPTION_LONG =
-    "add-way-node-order";
-const static inline std::string ADD_WAY_NODE_ORDER_OPTION_HELP =
-    "Add information about the node members in ways";
+const static inline std::string NO_MEMBER_TRIPLES_INFO =
+    "Do not write member triples for relations and ways";
+const static inline std::string NO_MEMBER_TRIPLES_OPTION_SHORT = "";
+const static inline std::string NO_MEMBER_TRIPLES_OPTION_LONG =
+    "no-member-triples";
+const static inline std::string NO_MEMBER_TRIPLES_OPTION_HELP =
+    "Do not write member triples for relations and ways";
 
 const static inline std::string ADD_WAY_NODE_SPATIAL_METADATA_INFO =
     "Adding way metadata";
@@ -325,6 +381,13 @@ const static inline std::string WKT_PRECISION_OPTION_SHORT = "";
 const static inline std::string WKT_PRECISION_OPTION_LONG = "wkt-precision";
 const static inline std::string WKT_PRECISION_OPTION_HELP =
     "Precision (number of decimal digits) for WKT coordinates";
+
+const static inline std::string BLANK_NODES_INFO =
+    "Blank nodes are masked";
+const static inline std::string BLANK_NODES_OPTION_SHORT = "";
+const static inline std::string BLANK_NODES_OPTION_LONG = "no-blank-nodes";
+const static inline std::string BLANK_NODES_OPTION_HELP =
+    "Avoid blank nodes by using a unique identifier for each member";
 
 const static inline std::string WRITE_RDF_STATISTICS_INFO =
     "Storing RDF statistics as .stats.json";

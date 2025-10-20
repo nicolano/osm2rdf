@@ -22,20 +22,18 @@
 
 #include <filesystem>
 #include <string>
+#include <thread>
 #include <unordered_set>
 #include <vector>
-#include <thread>
 
 #include "osm2rdf/config/Constants.h"
+#include "osm2rdf/ttl/Constants.h"
 #include "osm2rdf/ttl/Format.h"
 #include "osm2rdf/util/OutputMergeMode.h"
 
 namespace osm2rdf::config {
 
-enum GeoTriplesMode {
-  none = 0,
-  full = 1
-};
+enum GeoTriplesMode { none = 0, full = 1 };
 
 enum CompressFormat {
   NONE = 0,
@@ -43,10 +41,7 @@ enum CompressFormat {
   GZ = 2,
 };
 
-enum SourceDataset {
-  OSM = 0,
-  OHM = 1
-};
+enum SourceDataset { OSM = 0, OHM = 1 };
 
 struct Config {
   // Select what to do
@@ -57,6 +52,7 @@ struct Config {
   bool noNodeFacts = false;
   bool noRelationFacts = false;
   bool noWayFacts = false;
+  bool addZeroFactNumber = false;
 
   bool noGeometricRelations = false;
   bool noAreaGeometricRelations = false;
@@ -69,16 +65,27 @@ struct Config {
 
   // Select amount to dump
   bool addAreaWayLinestrings = false;
-  bool addCentroids = true;
+  bool addCentroid = false;
+  bool addEnvelope = false;
+  bool addObb = false;
+  bool addConvexHull = false;
   bool addWayMetadata = false;
-  bool addWayNodeOrder = false;
+  bool addMemberTriples = true;
   bool addWayNodeSpatialMetadata = false;
   bool skipWikiLinks = false;
+  bool addOsmMetadata = true;
 
   bool addUntaggedNodes = true;
   bool addUntaggedWays = true;
   bool addUntaggedRelations = true;
   bool addUntaggedAreas = true;
+
+  bool addSpatialRelsForUntaggedNodes = true;
+
+  std::string iriPrefixForUntaggedNodes =
+      osm2rdf::ttl::constants::IRI_PREFIX__OSM_NODE_UNTAGGED;
+
+  bool noBlankNodes = false;
 
   int numThreads = std::thread::hardware_concurrency();
 

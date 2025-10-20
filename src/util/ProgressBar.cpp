@@ -17,6 +17,7 @@
 // along with osm2rdf.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "osm2rdf/util/ProgressBar.h"
+#include "osm2rdf/util/Time.h"
 
 #include <cassert>
 #include <chrono>
@@ -24,19 +25,21 @@
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
+#include <string>
 
 // ____________________________________________________________________________
 osm2rdf::util::ProgressBar::ProgressBar(std::size_t maxValue, bool show)
     : _maxValue(maxValue),
-      _countWidth(std::floor(std::log10(maxValue)) + 1),
       _percent(k100Percent + 1),
       _last(std::time(nullptr)),
       _show(show) {
-  // Handle special case of 0 elements
-  if (maxValue == 0) {
-    _countWidth = 1;
-  }
-  _width = kTerminalWidth - _countWidth * 2 - 4 - 5 - 2;
+  _width = kTerminalWidth - 5 - 2 - 20;
+}
+
+// ____________________________________________________________________________
+void osm2rdf::util::ProgressBar::update(std::size_t count, char phase) {
+  _phase = phase;
+  update(count);
 }
 
 // ____________________________________________________________________________
@@ -59,6 +62,10 @@ void osm2rdf::util::ProgressBar::update(std::size_t count) {
   // Store new values.
   _percent = percent;
   _oldValue = count;
+
+  // Add time
+  std::cerr << osm2rdf::util::currentTimeFormatted();
+
   // Open progress bar part with [ ...
   std::cerr << '[';
   // ... add = to indicate done parts ...
@@ -79,12 +86,15 @@ void osm2rdf::util::ProgressBar::update(std::size_t count) {
   // Add percentage display %
   std::cerr << ' ' << std::setw(3) << std::right << percent << "%";
 
-  // Add absolute progress [x/y]
-  std::cerr << " [" << std::setw(_countWidth) << std::right << count << "/"
-            << _maxValue << "]\r";
-
   // Update last update time
   _last = std::time(nullptr);
+
+  // Add phase
+  if (_phase) std::cerr << " [" << _phase << "]";
+  else std::cerr << "    ";
+
+  std::cerr << "\r";
+
 }
 
 // ____________________________________________________________________________
@@ -94,9 +104,4 @@ void osm2rdf::util::ProgressBar::done() {
   }
   update(_maxValue);
   std::cerr << std::endl;
-}
-
-// ____________________________________________________________________________
-std::size_t osm2rdf::util::ProgressBar::countWidth() const {
-  return _countWidth;
 }

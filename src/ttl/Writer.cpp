@@ -17,19 +17,21 @@
 // You should have received a copy of the GNU General Public License
 // along with osm2rdf.  If not, see <https://www.gnu.org/licenses/>.
 
+#include "osm2rdf/ttl/Writer.h"
+
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <string>
 #include <thread>
 #include <vector>
-
-#include "osm2rdf/ttl/Writer.h"
 #if defined(_OPENMP)
 #include "omp.h"
 #endif
+#include "osm2rdf/Version.h"
 #include "osm2rdf/config/Config.h"
 #include "osm2rdf/ttl/Constants.h"
+#include "osm2rdf/util/Time.h"
 #include "osmium/osm/item_type.hpp"
 
 // ____________________________________________________________________________
@@ -57,10 +59,10 @@ osm2rdf::ttl::Writer<T>::Writer(const osm2rdf::config::Config& config,
        "https://osm2rdf.cs.uni-freiburg.de/rdf/geom#"},
       {osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_TAG,
        "https://osm2rdf.cs.uni-freiburg.de/rdf/key#"},
-      {osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_MEMBER,
-       "https://osm2rdf.cs.uni-freiburg.de/rdf/member#"},
       {osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_META,
        "https://osm2rdf.cs.uni-freiburg.de/rdf/meta#"},
+      {osm2rdf::ttl::constants::NAMESPACE__GENID,
+       "http://osm2rdf.cs.uni-freiburg.de/.well-known/genid/"},
       // https://wiki.openstreetmap.org/wiki/Sophox#How_OSM_data_is_stored
       // https://github.com/Sophox/sophox/blob/master/osm2rdf/osmutils.py#L35-L39
       // osm prefixes
@@ -71,20 +73,37 @@ osm2rdf::ttl::Writer<T>::Writer(const osm2rdf::config::Config& config,
       {osm2rdf::ttl::constants::NAMESPACE__OSM_TAG,
        "https://www.openstreetmap.org/wiki/Key:"},
       {osm2rdf::ttl::constants::NAMESPACE__OSM_NODE,
-       "https://www.openstreetmap.org/node/"},
+       osm2rdf::ttl::constants::IRI_PREFIX__OSM_NODE_TAGGED},
+      {osm2rdf::ttl::constants::NAMESPACE__OSM_NODE_TAGGED,
+       osm2rdf::ttl::constants::IRI_PREFIX__OSM_NODE_TAGGED},
+      {osm2rdf::ttl::constants::NAMESPACE__OSM_NODE_UNTAGGED,
+       config.sourceDataset == osm2rdf::config::OSM
+           ? config.iriPrefixForUntaggedNodes
+           : osm2rdf::ttl::constants::IRI_PREFIX__OSM_NODE_UNTAGGED},
       {osm2rdf::ttl::constants::NAMESPACE__OSM_RELATION,
        "https://www.openstreetmap.org/relation/"},
       {osm2rdf::ttl::constants::NAMESPACE__OSM_WAY,
        "https://www.openstreetmap.org/way/"},
+      {osm2rdf::ttl::constants::NAMESPACE__OSM_CHANGESET,
+       "https://www.openstreetmap.org/changeset/"},
       // ohm prefixes
       {osm2rdf::ttl::constants::NAMESPACE__OHM,
        "https://www.openhistoricalmap.org/"},
       {osm2rdf::ttl::constants::NAMESPACE__OHM_NODE,
-       "https://www.openhistoricalmap.org/node/"},
+       osm2rdf::ttl::constants::IRI_PREFIX__OHM_NODE_TAGGED},
+      {osm2rdf::ttl::constants::NAMESPACE__OHM_NODE_TAGGED,
+       osm2rdf::ttl::constants::IRI_PREFIX__OHM_NODE_TAGGED},
+      {osm2rdf::ttl::constants::NAMESPACE__OHM_NODE_UNTAGGED,
+       config.sourceDataset == osm2rdf::config::OHM
+           ? config.iriPrefixForUntaggedNodes
+           : osm2rdf::ttl::constants::IRI_PREFIX__OHM_NODE_UNTAGGED},
       {osm2rdf::ttl::constants::NAMESPACE__OHM_RELATION,
        "https://www.openhistoricalmap.org/relation/"},
       {osm2rdf::ttl::constants::NAMESPACE__OHM_WAY,
-       "https://www.openhistoricalmap.org/way/"}};
+       "https://www.openhistoricalmap.org/way/"},
+      {osm2rdf::ttl::constants::NAMESPACE__OHM_CHANGESET,
+       "https://www.openhistoricalmap.org/changeset/"},
+  };
 
   // Generate constants
   osm2rdf::ttl::constants::IRI__GEOSPARQL__AS_WKT =
@@ -98,29 +117,25 @@ osm2rdf::ttl::Writer<T>::Writer(const osm2rdf::config::Config& config,
   osm2rdf::ttl::constants::IRI__GEOSPARQL__WKT_LITERAL =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__GEOSPARQL, "wktLiteral");
 
-  osm2rdf::ttl::constants::IRI__OPENGIS_CONTAINS =
+  osm2rdf::ttl::constants::IRI__OPENGIS__CONTAINS =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OPENGIS, "sfContains");
-  osm2rdf::ttl::constants::IRI__OSM2RDF_CONTAINS_AREA =
-      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM2RDF, "contains_area");
-  osm2rdf::ttl::constants::IRI__OSM2RDF_CONTAINS_NON_AREA = generateIRI(
-      osm2rdf::ttl::constants::NAMESPACE__OSM2RDF, "contains_nonarea");
-  osm2rdf::ttl::constants::IRI__OPENGIS_INTERSECTS =
+  osm2rdf::ttl::constants::IRI__OPENGIS__INTERSECTS =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OPENGIS, "sfIntersects");
-  osm2rdf::ttl::constants::IRI__OPENGIS_COVERS =
+  osm2rdf::ttl::constants::IRI__OPENGIS__COVERS =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OPENGIS, "sfCovers");
-  osm2rdf::ttl::constants::IRI__OPENGIS_TOUCHES =
+  osm2rdf::ttl::constants::IRI__OPENGIS__TOUCHES =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OPENGIS, "sfTouches");
-  osm2rdf::ttl::constants::IRI__OPENGIS_EQUALS =
+  osm2rdf::ttl::constants::IRI__OPENGIS__EQUALS =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OPENGIS, "sfEquals");
-  osm2rdf::ttl::constants::IRI__OPENGIS_CROSSES =
+  osm2rdf::ttl::constants::IRI__OPENGIS__CROSSES =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OPENGIS, "sfCrosses");
-  osm2rdf::ttl::constants::IRI__OPENGIS_OVERLAPS =
+  osm2rdf::ttl::constants::IRI__OPENGIS__OVERLAPS =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OPENGIS, "sfOverlaps");
 
-  osm2rdf::ttl::constants::IRI__OSM2RDF_INTERSECTS_AREA = generateIRI(
-      osm2rdf::ttl::constants::NAMESPACE__OSM2RDF, "intersects_area");
-  osm2rdf::ttl::constants::IRI__OSM2RDF_INTERSECTS_NON_AREA = generateIRI(
-      osm2rdf::ttl::constants::NAMESPACE__OSM2RDF, "intersects_nonarea");
+  osm2rdf::ttl::constants::IRI__OSM2RDF_META__INFO =
+      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_META, "info");
+  osm2rdf::ttl::constants::IRI__OSM2RDF_META__OPTION =
+      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_META, "option");
   osm2rdf::ttl::constants::IRI__OSM2RDF_GEOM__CONVEX_HULL = generateIRI(
       osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_GEOM, "convex_hull");
   osm2rdf::ttl::constants::IRI__OSM2RDF_GEOM__ENVELOPE =
@@ -129,58 +144,78 @@ osm2rdf::ttl::Writer<T>::Writer(const osm2rdf::config::Config& config,
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM2RDF, "length");
   osm2rdf::ttl::constants::IRI__OSM2RDF_GEOM__OBB =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_GEOM, "obb");
-  osm2rdf::ttl::constants::IRI__OSM2RDF_MEMBER__ID =
-      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_MEMBER, "id");
-  osm2rdf::ttl::constants::IRI__OSM2RDF_MEMBER__ROLE =
-      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_MEMBER, "role");
-  osm2rdf::ttl::constants::IRI__OSM2RDF_MEMBER__POS =
-      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_MEMBER, "pos");
-  osm2rdf::ttl::constants::IRI__OSMMETA_TIMESTAMP =
+  osm2rdf::ttl::constants::IRI__OSMREL__MEMBER_ID = generateIRI(
+      osm2rdf::ttl::constants::NAMESPACE__OSM_RELATION, "member_id");
+  osm2rdf::ttl::constants::IRI__OSMREL__MEMBER_ROLE = generateIRI(
+      osm2rdf::ttl::constants::NAMESPACE__OSM_RELATION, "member_role");
+  osm2rdf::ttl::constants::IRI__OSMREL__MEMBER_POS = generateIRI(
+      osm2rdf::ttl::constants::NAMESPACE__OSM_RELATION, "member_pos");
+  osm2rdf::ttl::constants::IRI__OSMWAY__MEMBER_POS =
+      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_WAY, "member_pos");
+  osm2rdf::ttl::constants::IRI__OSMWAY__MEMBER_ID =
+      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_WAY, "member_id");
+  osm2rdf::ttl::constants::IRI__OSMMETA__CHANGESET =
+      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_META, "changeset");
+  osm2rdf::ttl::constants::IRI__OSMMETA__TIMESTAMP =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_META, "timestamp");
-  osm2rdf::ttl::constants::IRI__OSMWAY_IS_CLOSED =
+  osm2rdf::ttl::constants::IRI__OSMMETA__USER =
+      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_META, "user");
+  osm2rdf::ttl::constants::IRI__OSMMETA__UID =
+      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_META, "uid");
+  osm2rdf::ttl::constants::IRI__OSMMETA__VERSION =
+      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_META, "version");
+  osm2rdf::ttl::constants::IRI__OSMMETA__VISIBLE =
+      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_META, "visible");
+  osm2rdf::ttl::constants::IRI__OSMWAY__IS_CLOSED =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_WAY, "is_closed");
-  osm2rdf::ttl::constants::IRI__OSMWAY_NEXT_NODE =
+  osm2rdf::ttl::constants::IRI__OSMWAY__NEXT_NODE =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_WAY, "next_node");
-  osm2rdf::ttl::constants::IRI__OSMWAY_NEXT_NODE_DISTANCE = generateIRI(
+  osm2rdf::ttl::constants::IRI__OSMWAY__NEXT_NODE_DISTANCE = generateIRI(
       osm2rdf::ttl::constants::NAMESPACE__OSM_WAY, "next_node_distance");
-  osm2rdf::ttl::constants::IRI__OSMWAY_NODE =
-      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_WAY, "node");
-  osm2rdf::ttl::constants::IRI__OSMWAY_NODE_COUNT =
+  osm2rdf::ttl::constants::IRI__OSMWAY__NODE =
+      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_WAY, "member");
+  osm2rdf::ttl::constants::IRI__OSMWAY__NODE_COUNT =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM_WAY, "nodeCount");
-  osm2rdf::ttl::constants::IRI__OSMWAY_UNIQUE_NODE_COUNT = generateIRI(
+  osm2rdf::ttl::constants::IRI__OSMWAY__UNIQUE_NODE_COUNT = generateIRI(
       osm2rdf::ttl::constants::NAMESPACE__OSM_WAY, "uniqueNodeCount");
-  osm2rdf::ttl::constants::IRI__OSM_NODE =
+  osm2rdf::ttl::constants::IRI__OSM__NODE =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM, "node");
-  osm2rdf::ttl::constants::IRI__OSM_RELATION =
+  osm2rdf::ttl::constants::IRI__OSM__CHANGESET =
+      generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM, "changeset");
+  osm2rdf::ttl::constants::IRI__OSM__RELATION =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM, "relation");
-  osm2rdf::ttl::constants::IRI__OSM_TAG =
+  osm2rdf::ttl::constants::IRI__OSM__TAG =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM, "tag");
-  osm2rdf::ttl::constants::IRI__OSM_WAY =
+  osm2rdf::ttl::constants::IRI__OSM__WAY =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM, "way");
-  osm2rdf::ttl::constants::IRI__RDF_TYPE =
+  osm2rdf::ttl::constants::IRI__RDF__TYPE =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__RDF, "type");
-  osm2rdf::ttl::constants::IRI__OSM2RDF_FACTS =
+  osm2rdf::ttl::constants::IRI__OSM2RDF__FACTS =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__OSM2RDF, "facts");
 
-  osm2rdf::ttl::constants::IRI__XSD_DATE =
+  osm2rdf::ttl::constants::IRI__XSD__DATE =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__XML_SCHEMA, "date");
-  osm2rdf::ttl::constants::IRI__XSD_DATE_TIME =
+  osm2rdf::ttl::constants::IRI__XSD__DATE_TIME =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__XML_SCHEMA, "dateTime");
-  osm2rdf::ttl::constants::IRI__XSD_DECIMAL =
+  osm2rdf::ttl::constants::IRI__XSD__DECIMAL =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__XML_SCHEMA, "decimal");
-  osm2rdf::ttl::constants::IRI__XSD_DOUBLE =
+  osm2rdf::ttl::constants::IRI__XSD__DOUBLE =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__XML_SCHEMA, "double");
-  osm2rdf::ttl::constants::IRI__XSD_FLOAT =
+  osm2rdf::ttl::constants::IRI__XSD__FLOAT =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__XML_SCHEMA, "float");
-  osm2rdf::ttl::constants::IRI__XSD_INTEGER =
+  osm2rdf::ttl::constants::IRI__XSD__INTEGER =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__XML_SCHEMA, "integer");
-  osm2rdf::ttl::constants::IRI__XSD_YEAR =
+  osm2rdf::ttl::constants::IRI__XSD__BOOLEAN =
+      generateIRI(osm2rdf::ttl::constants::NAMESPACE__XML_SCHEMA, "boolean");
+  osm2rdf::ttl::constants::IRI__XSD__YEAR =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__XML_SCHEMA, "gYear");
-  osm2rdf::ttl::constants::IRI__XSD_YEAR_MONTH =
+  osm2rdf::ttl::constants::IRI__XSD__YEAR_MONTH =
       generateIRI(osm2rdf::ttl::constants::NAMESPACE__XML_SCHEMA, "gYearMonth");
 
-  osm2rdf::ttl::constants::LITERAL__NO = generateLiteral("no");
-  osm2rdf::ttl::constants::LITERAL__YES = generateLiteral("yes");
+  osm2rdf::ttl::constants::LITERAL__FALSE = generateLiteral(
+      "false", "^^" + osm2rdf::ttl::constants::IRI__XSD__BOOLEAN);
+  osm2rdf::ttl::constants::LITERAL__TRUE = generateLiteral(
+      "true", "^^" + osm2rdf::ttl::constants::IRI__XSD__BOOLEAN);
 
   // Prepare statistic variables
   _numOuts = config.numThreads + 1;
@@ -265,6 +300,126 @@ void osm2rdf::ttl::Writer<osm2rdf::ttl::format::NT>::writeHeader() {}
 
 // ____________________________________________________________________________
 template <typename T>
+void osm2rdf::ttl::Writer<T>::writeMetadata() {
+  // Write osm2rdf version to metadata.
+  writeTriple(osm2rdf::ttl::constants::IRI__OSM2RDF_META__INFO,
+              generateIRIUnsafe(
+                  osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_META, "version"),
+              generateLiteral(osm2rdf::version::GIT_INFO, ""));
+
+  // Write dump time to metadata.
+  const auto n = std::chrono::system_clock::now();
+  const time_t time = std::chrono::system_clock::to_time_t(n);
+  writeSecondsAsISO(
+      osm2rdf::ttl::constants::IRI__OSM2RDF_META__INFO,
+      generateIRIUnsafe(osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_META,
+                        "dateDumped"),
+      time);
+
+  // Write used osm2rdf options to metadata.
+  writeOptionTriple(osm2rdf::config::constants::NO_AREA_FACTS_OPTION_LONG,
+                    generateBooleanLiteral(_config.noAreaFacts));
+  writeOptionTriple(osm2rdf::config::constants::NO_NODE_FACTS_OPTION_LONG,
+                    generateBooleanLiteral(_config.noNodeFacts));
+  writeOptionTriple(osm2rdf::config::constants::NO_RELATION_FACTS_OPTION_LONG,
+                    generateBooleanLiteral(_config.noRelationFacts));
+  writeOptionTriple(osm2rdf::config::constants::NO_WAY_FACTS_OPTION_LONG,
+                    generateBooleanLiteral(_config.noWayFacts));
+  writeOptionTriple(
+      osm2rdf::config::constants::ADD_ZERO_FACT_NUMBER_OPTION_LONG,
+      generateBooleanLiteral(_config.addZeroFactNumber));
+
+  writeOptionTriple(
+      osm2rdf::config::constants::NO_AREA_GEOM_RELATIONS_OPTION_LONG,
+      generateBooleanLiteral(_config.noAreaGeometricRelations));
+  writeOptionTriple(
+      osm2rdf::config::constants::NO_NODE_GEOM_RELATIONS_OPTION_LONG,
+      generateBooleanLiteral(_config.noNodeGeometricRelations));
+  writeOptionTriple(
+      osm2rdf::config::constants::NO_RELATION_GEOM_RELATIONS_OPTION_LONG,
+      generateBooleanLiteral(_config.noRelationGeometricRelations));
+  writeOptionTriple(
+      osm2rdf::config::constants::NO_WAY_GEOM_RELATIONS_OPTION_LONG,
+      generateBooleanLiteral(_config.noWayGeometricRelations));
+
+  writeOptionTriple(
+      osm2rdf::config::constants::OGC_GEO_TRIPLES_OPTION_LONG,
+      generateLiteral(_config.ogcGeoTriplesMode == config::none ? "none"
+                                                                : "full"));
+
+  writeOptionTriple(
+      osm2rdf::config::constants::SOURCE_DATASET_OPTION_LONG,
+      generateLiteral(_config.sourceDataset == config::OSM ? "OSM" : "OHM"));
+
+  writeOptionTriple(
+      osm2rdf::config::constants::ADD_AREA_WAY_LINESTRINGS_OPTION_LONG,
+      generateBooleanLiteral(_config.addAreaWayLinestrings));
+  writeOptionTriple(osm2rdf::config::constants::ADD_CENTROID_OPTION_LONG,
+                    generateBooleanLiteral(_config.addCentroid));
+  writeOptionTriple(osm2rdf::config::constants::ADD_ENVELOPE_OPTION_LONG,
+                    generateBooleanLiteral(_config.addEnvelope));
+  writeOptionTriple(osm2rdf::config::constants::ADD_OBB_OPTION_LONG,
+                    generateBooleanLiteral(_config.addObb));
+  writeOptionTriple(osm2rdf::config::constants::ADD_CONVEX_HULL_OPTION_LONG,
+                    generateBooleanLiteral(_config.addConvexHull));
+
+  writeOptionTriple(osm2rdf::config::constants::ADD_WAY_METADATA_OPTION_LONG,
+                    generateBooleanLiteral(_config.addWayMetadata));
+  writeOptionTriple(osm2rdf::config::constants::NO_OSM_METADATA_OPTION_LONG,
+                    generateBooleanLiteral(!_config.addOsmMetadata));
+  writeOptionTriple(osm2rdf::config::constants::NO_MEMBER_TRIPLES_OPTION_LONG,
+                    generateBooleanLiteral(!_config.addMemberTriples));
+  writeOptionTriple(
+      osm2rdf::config::constants::ADD_WAY_NODE_SPATIAL_METADATA_OPTION_LONG,
+      generateBooleanLiteral(_config.addWayNodeSpatialMetadata));
+  writeOptionTriple(osm2rdf::config::constants::SKIP_WIKI_LINKS_OPTION_LONG,
+                    generateBooleanLiteral(_config.skipWikiLinks));
+  writeOptionTriple(osm2rdf::config::constants::SIMPLIFY_GEOMETRIES_OPTION_LONG,
+                    generateBooleanLiteral(_config.simplifyGeometries));
+  writeOptionTriple(osm2rdf::config::constants::SIMPLIFY_WKT_OPTION_LONG,
+                    generateLiteral(std::to_string(_config.simplifyWKT),
+                                    "^^" + constants::IRI__XSD__INTEGER));
+  writeOptionTriple(
+      osm2rdf::config::constants::SIMPLIFY_WKT_DEVIATION_OPTION_LONG,
+      generateLiteral(std::to_string(_config.wktDeviation),
+                      "^^" + constants::IRI__XSD__DOUBLE));
+  writeOptionTriple(osm2rdf::config::constants::WKT_PRECISION_OPTION_LONG,
+                    generateLiteral(std::to_string(_config.wktPrecision),
+                                    "^^" + constants::IRI__XSD__INTEGER));
+
+  writeOptionTriple(
+      osm2rdf::config::constants::UNTAGGED_NODES_SPATIAL_RELS_OPTION_LONG,
+      generateBooleanLiteral(_config.addSpatialRelsForUntaggedNodes));
+  writeOptionTriple(osm2rdf::config::constants::BLANK_NODES_OPTION_LONG,
+                    generateBooleanLiteral(_config.noBlankNodes));
+  writeOptionTriple(osm2rdf::config::constants::NO_UNTAGGED_NODES_OPTION_LONG,
+                    generateBooleanLiteral(!_config.addUntaggedNodes));
+  writeOptionTriple(osm2rdf::config::constants::NO_UNTAGGED_WAYS_OPTION_LONG,
+                    generateBooleanLiteral(!_config.addUntaggedWays));
+  writeOptionTriple(
+      osm2rdf::config::constants::NO_UNTAGGED_RELATIONS_OPTION_LONG,
+      generateBooleanLiteral(!_config.addUntaggedRelations));
+  writeOptionTriple(osm2rdf::config::constants::NO_UNTAGGED_AREAS_OPTION_LONG,
+                    generateBooleanLiteral(!_config.addUntaggedAreas));
+  writeOptionTriple(
+      osm2rdf::config::constants::IRI_PREFIX_FOR_UNTAGGED_NODES_OPTION_LONG,
+      generateLiteral(_config.iriPrefixForUntaggedNodes));
+
+  _out->flush();
+}
+
+// ____________________________________________________________________________
+template <typename T>
+void osm2rdf::ttl::Writer<T>::writeOptionTriple(const std::string& optionName,
+                                                const std::string& value) {
+  writeTriple(osm2rdf::ttl::constants::IRI__OSM2RDF_META__OPTION,
+              generateIRIUnsafe(
+                  osm2rdf::ttl::constants::NAMESPACE__OSM2RDF_META, optionName),
+              value);
+}
+
+// ____________________________________________________________________________
+template <typename T>
 std::string osm2rdf::ttl::Writer<T>::generateBlankNode() {
   int threadId = 0;
 #if defined(_OPENMP)
@@ -272,6 +427,39 @@ std::string osm2rdf::ttl::Writer<T>::generateBlankNode() {
 #endif
   return "_:" + std::to_string(threadId) + "_" +
          std::to_string(_blankNodeCount[threadId]++);
+}
+
+// ____________________________________________________________________________
+template <typename T>
+std::string osm2rdf::ttl::Writer<T>::generateSkolem(const std::string& id) {
+  return generateIRIUnsafe(osm2rdf::ttl::constants::NAMESPACE__GENID, id);
+}
+
+// ____________________________________________________________________________
+template <typename T>
+std::string osm2rdf::ttl::Writer<T>::generateSkolemForRelationMember(
+    const uint64_t& relationId,
+    const uint64_t& memberId,
+    const std::string& memberType,
+    const size_t& relPos) {
+  const std::string skolemId = "r" + std::to_string(relationId) +
+                               //Extract the first relevant char to determine
+                               //the type of the osm/ohm object
+                               memberType.at(3) + std::to_string(memberId) +
+                               "p" + std::to_string(relPos);
+  return generateSkolem(skolemId);
+}
+
+// ____________________________________________________________________________
+template <typename T>
+std::string osm2rdf::ttl::Writer<T>::generateSkolemForWayMember(
+    const uint64_t& wayId,
+    const uint64_t& nodeId,
+    const size_t& relPos) {
+  const std::string skolemId = "w" + std::to_string(wayId) +
+                               "n" + std::to_string(nodeId) +
+                               "p" + std::to_string(relPos);
+  return generateSkolem(skolemId);
 }
 
 // ____________________________________________________________________________
@@ -413,6 +601,12 @@ std::string osm2rdf::ttl::Writer<T>::generateLiteral(std::string_view v) {
 
 // ____________________________________________________________________________
 template <typename T>
+std::string osm2rdf::ttl::Writer<T>::generateBooleanLiteral(const bool& b) {
+  return b ? constants::LITERAL__TRUE : constants::LITERAL__FALSE;
+}
+
+// ____________________________________________________________________________
+template <typename T>
 std::string osm2rdf::ttl::Writer<T>::generateLiteral(std::string_view v,
                                                      std::string_view s) {
   return STRING_LITERAL_QUOTE(v) + std::string{s};
@@ -432,18 +626,16 @@ std::string osm2rdf::ttl::Writer<T>::generateLiteralUnsafe(std::string_view v,
 
   return ret;
 }
-
 // ____________________________________________________________________________
 template <typename T>
-void osm2rdf::ttl::Writer<T>::writeUnsafeIRILiteralTriple(
-    const std::string& s, const std::string& p, const std::string& v,
-    const std::string& o) {
+void osm2rdf::ttl::Writer<T>::writeUnsafeIRILiteralTriple(const char* s,
+                                                          const char* p,
+                                                          const char* v,
+                                                          const char* o) {
   size_t part = 0;
 
 #if defined(_OPENMP)
   part = omp_get_thread_num();
-#else
-  part = 0;
 #endif
 
   writeUnsafeIRILiteralTriple(s, p, v, o, part);
@@ -451,11 +643,8 @@ void osm2rdf::ttl::Writer<T>::writeUnsafeIRILiteralTriple(
 
 // ____________________________________________________________________________
 template <typename T>
-void osm2rdf::ttl::Writer<T>::writeUnsafeIRILiteralTriple(const std::string& s,
-                                                          const std::string& p,
-                                                          const std::string& v,
-                                                          const std::string& o,
-                                                          size_t part) {
+void osm2rdf::ttl::Writer<T>::writeUnsafeIRILiteralTriple(
+    const char* s, const char* p, const char* v, const char* o, size_t part) {
   _out->write(s, part);
   _out->write(' ', part);
   writeIRIUnsafe(p, v, part);
@@ -509,8 +698,6 @@ void osm2rdf::ttl::Writer<T>::writeTriple(const std::string& s,
 
 #if defined(_OPENMP)
   part = omp_get_thread_num();
-#else
-  part = 0;
 #endif
 
   writeTriple(s, p, o, part);
@@ -541,8 +728,6 @@ void osm2rdf::ttl::Writer<T>::writeLiteralTripleUnsafe(const std::string& s,
 
 #if defined(_OPENMP)
   part = omp_get_thread_num();
-#else
-  part = 0;
 #endif
   writeLiteralTripleUnsafe(s, p, a, b, part);
 }
@@ -1325,6 +1510,138 @@ void osm2rdf::ttl::Writer<osm2rdf::ttl::format::QLEVER>::writeFormattedIRI(
     return;
   }
   _out->write(IRIREF(p, v), part);
+}
+
+// ____________________________________________________________________________
+template <typename T>
+void osm2rdf::ttl::Writer<T>::writeSecondsAsISO(const std::string& subj,
+                                                const std::string& pred,
+                                                const std::time_t& time) {
+  size_t part = 0;
+
+#if defined(_OPENMP)
+  part = omp_get_thread_num();
+#endif
+
+  _out->write(subj, part);
+  _out->write(' ', part);
+  _out->write(pred, part);
+  _out->write(' ', part);
+
+  _out->write('"', part);
+
+  struct tm t;
+  gmtime_r(&time, &t);
+
+  int year = t.tm_year + 1900;
+  int month = t.tm_mon + 1;
+
+  // 4 digit year
+  _out->write('0' + (year / 1000) % 10, part);
+  _out->write('0' + (year / 100) % 10, part);
+  _out->write('0' + (year / 10) % 10, part);
+  _out->write('0' + (year % 10), part);
+  _out->write('-', part);
+
+  _out->write('0' + (month / 10) % 10, part);
+  _out->write('0' + (month % 10), part);
+  _out->write('-', part);
+
+  _out->write('0' + (t.tm_mday / 10) % 10, part);
+  _out->write('0' + (t.tm_mday % 10), part);
+  _out->write('T', part);
+
+  _out->write('0' + (t.tm_hour / 10) % 10, part);
+  _out->write('0' + (t.tm_hour % 10), part);
+  _out->write(':', part);
+
+  _out->write('0' + (t.tm_min / 10) % 10, part);
+  _out->write('0' + (t.tm_min % 10), part);
+  _out->write(':', part);
+
+  _out->write('0' + (t.tm_sec / 10) % 10, part);
+  _out->write('0' + (t.tm_sec % 10), part);
+
+  _out->write("\"^^", part);
+  _out->write(constants::IRI__XSD__DATE_TIME, part);
+
+  _out->write(" .", part);
+  _out->writeNewLine(part);
+  _lineCount[part]++;
+}
+
+// ____________________________________________________________________________
+template <typename T>
+void osm2rdf::ttl::Writer<T>::writeNewLine(size_t part) {
+  _out->writeNewLine(part);
+  _lineCount[part]++;
+}
+
+// ____________________________________________________________________________
+template <typename T>
+void osm2rdf::ttl::Writer<T>::writeNewLine() {
+  size_t part = 0;
+
+#if defined(_OPENMP)
+  part = omp_get_thread_num();
+#endif
+
+  _out->writeNewLine(part);
+  _lineCount[part]++;
+}
+
+// ____________________________________________________________________________
+template <typename T>
+void osm2rdf::ttl::Writer<T>::write(const char c, size_t part) {
+  _out->write(c, part);
+}
+
+// ____________________________________________________________________________
+template <typename T>
+void osm2rdf::ttl::Writer<T>::write(std::string_view s, size_t part) {
+  _out->write(s, part);
+}
+
+// ____________________________________________________________________________
+template <typename T>
+void osm2rdf::ttl::Writer<T>::write(const char* s, size_t part) {
+  _out->write(s, part);
+}
+
+// ____________________________________________________________________________
+template <typename T>
+void osm2rdf::ttl::Writer<T>::write(const char c) {
+  size_t part = 0;
+
+#if defined(_OPENMP)
+  part = omp_get_thread_num();
+#endif
+
+  _out->write(c, part);
+}
+
+// ____________________________________________________________________________
+template <typename T>
+void osm2rdf::ttl::Writer<T>::write(std::string_view s) {
+  size_t part = 0;
+
+#if defined(_OPENMP)
+  part = omp_get_thread_num();
+#endif
+
+  _out->write(s, part);
+}
+
+// ____________________________________________________________________________
+template <typename T>
+void osm2rdf::ttl::Writer<T>::write(const char* s) {
+  size_t part = 0;
+
+#if defined(_OPENMP)
+  part = omp_get_thread_num();
+#endif
+
+  _out->write(s, part);
 }
 
 // ____________________________________________________________________________

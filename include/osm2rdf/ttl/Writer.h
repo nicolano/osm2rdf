@@ -81,10 +81,8 @@ static const int UTF8_BYTES_SHORT = 4;
 #include "osm2rdf/config/Config.h"
 #include "osm2rdf/osm/Area.h"
 #include "osm2rdf/osm/Box.h"
-#include "osm2rdf/osm/Node.h"
 #include "osm2rdf/osm/Relation.h"
 #include "osm2rdf/osm/Tag.h"
-#include "osm2rdf/osm/TagList.h"
 #include "osm2rdf/osm/Way.h"
 #include "osm2rdf/ttl/Constants.h"
 #include "osm2rdf/util/Output.h"
@@ -103,6 +101,13 @@ class Writer {
   // Write the header (does nothing for NT)
   void writeHeader();
 
+  // Write metadata about used osm2rdf options, version, and dump date.
+  void writeMetadata();
+
+  // Write a triple for osm2rdf options in osm2rdf-meta-option namespace.
+  void writeOptionTriple(const std::string& optionName,
+                         const std::string& value);
+
   // Write a single RDF line. The contents of s, p, and o are not checked.
   void writeTriple(const std::string& s, const std::string& p,
                    const std::string& o);
@@ -115,10 +120,10 @@ class Writer {
                              const std::string& v, const std::string& o,
                              size_t part);
 
-  void writeUnsafeIRILiteralTriple(const std::string& s, const std::string& p,
-                                   const std::string& v, const std::string& o);
-  void writeUnsafeIRILiteralTriple(const std::string& s, const std::string& p,
-                                   const std::string& v, const std::string& o,
+  void writeUnsafeIRILiteralTriple(const char* s, const char* p,
+                                   const char* v, const char* o);
+  void writeUnsafeIRILiteralTriple(const char* s, const char* p,
+                                   const char* v, const char* o,
                                    size_t part);
 
   // Write a single RDF line with a literal. The contents of s, p, a and b are
@@ -129,6 +134,30 @@ class Writer {
                                 const std::string& a, const std::string& b,
                                 size_t part);
 
+  // write a string_view directly to the output
+  void write(std::string_view value);
+
+  // write a const char directly to the output
+  void write(const char*);
+
+  // write a char directly to the output
+  void write(const char);
+
+  // write a string_view directly to the output
+  void write(std::string_view value, size_t part);
+
+  // write a const char directly to the output
+  void write(const char*, size_t part);
+
+  // write a char directly to the output
+  void write(const char, size_t part);
+
+  // write a newline
+  void writeNewLine();
+
+  // write a newline
+  void writeNewLine(size_t part);
+
   // addPrefix adds the given prefix and value. If the prefix already exists
   // false is returned.
   bool addPrefix(const std::string& prefix, std::string_view value);
@@ -138,6 +167,26 @@ class Writer {
 
   // generateBlankNode creates a new unique identifier for a blank node.
   std::string generateBlankNode();
+
+  // generateSkolem creates a unique identifier for an osm object member.
+  std::string generateSkolem(const std::string& id);
+
+  // generateSkolemForRelationMember creates a unique identifier for a member of
+  // a relation by combining the id of the relation and member with a letter
+  // indicating the object type ('r', 'w', or 'n'). The relative position of the
+  // object in the relation is appended behind 'p'. Example: "r1234w5678p3"
+  std::string generateSkolemForRelationMember(const uint64_t& relationId,
+                                              const uint64_t& memberId,
+                                              const std::string& memberType,
+                                              const size_t& relPos);
+
+  // generateSkolemForWayMember creates a unique identifier for a member of
+  // a way by combining the id of the way and member with a letter
+  // indicating the object type ('r', 'w', or 'n'). The relative position of the node in the way is
+  // appended behind 'p'. Example: "w1234n5678p0"
+  std::string generateSkolemForWayMember(const uint64_t& wayId,
+                                         const uint64_t& nodeId,
+                                         const size_t& relPos);
 
   // Creates a IRI from given prefix p and string value v.
   // Assumes that both p and v are "safe", that is, they can be used
@@ -164,6 +213,7 @@ class Writer {
   // generateLangTag creates a Literal from the given string value v.
   std::string generateLiteral(std::string_view v, std::string_view s);
   std::string generateLiteral(std::string_view v);
+  std::string generateBooleanLiteral(const bool &b);
 
   // Assumes that both p and v are "safe", that is, they can be used
   // directly in the TTL
@@ -171,6 +221,10 @@ class Writer {
 
   void writeLiteral(std::string_view v, size_t part);
   void writeLiteralUnsafe(std::string_view v, std::string_view s, size_t part);
+
+  void writeSecondsAsISO(const std::string& subj, const std::string& pred,
+                         const std::time_t& time);
+  FRIEND_TEST(TTL_Writer, writeSecondsAsISO);
 
   // -------------------------------------------------------------------------
   // Following functions are used by the ones above. These functions implement

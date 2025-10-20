@@ -1,4 +1,4 @@
-// Copyright 2020, University of Freiburg
+// Copyright 2023, University of Freiburg
 // Authors: Axel Lehmann <lehmann@cs.uni-freiburg.de>.
 
 // This file is part of osm2rdf.
@@ -16,21 +16,14 @@
 // You should have received a copy of the GNU General Public License
 // along with osm2rdf.  If not, see <https://www.gnu.org/licenses/>.
 
-#include <algorithm>
-#include "osm2rdf/osm/TagList.h"
+#ifndef OSM2RDF_OSM_GENERIC_H
+#define OSM2RDF_OSM_GENERIC_H
 
-#include "osmium/tags/taglist.hpp"
+namespace osm2rdf::osm::generic {
 
-// ____________________________________________________________________________
-osm2rdf::osm::TagList osm2rdf::osm::convertTagList(
-    const osmium::TagList& tagList) {
-  osm2rdf::osm::TagList result;
-  result.reserve(tagList.size());
+typedef uint32_t changeset_id_t;
+typedef uint8_t version_t;
 
-  for (const auto& tag : tagList) {
-    std::string key{tag.key()};
-    std::replace(key.begin(), key.end(), ' ', '_');
-    result.push_back({key, tag.value()});
-  }
-  return result;
-}
+}  // namespace osm2rdf::osm::generic
+
+#endif  // OSM2RDF_OSM_GENERIC_H

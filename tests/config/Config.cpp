@@ -42,7 +42,7 @@ void assertDefaultConfig(const osm2rdf::config::Config& config) {
   ASSERT_FALSE(config.noWayGeometricRelations);
 
   ASSERT_FALSE(config.addAreaWayLinestrings);
-  ASSERT_FALSE(config.addWayNodeOrder);
+  ASSERT_TRUE(config.addMemberTriples);
   ASSERT_FALSE(config.addWayNodeSpatialMetadata);
   ASSERT_FALSE(config.addWayMetadata);
   ASSERT_FALSE(config.skipWikiLinks);
@@ -50,6 +50,8 @@ void assertDefaultConfig(const osm2rdf::config::Config& config) {
   ASSERT_EQ(0, config.semicolonTagKeys.size());
 
   ASSERT_FALSE(config.writeRDFStatistics);
+
+  ASSERT_FALSE(config.noBlankNodes);
 
   ASSERT_EQ(0, config.simplifyGeometries);
   ASSERT_EQ(0, config.simplifyWKT);
@@ -339,9 +341,8 @@ TEST(CONFIG_Config, fromArgsStoreLocationsLongSparse) {
   assertDefaultConfig(config);
   osm2rdf::util::CacheFile cf("/tmp/dummyInput");
 
-  const auto arg = "--" +
-                   osm2rdf::config::constants::STORE_LOCATIONS_LONG +
-                   "=sparse";
+  const auto arg =
+      "--" + osm2rdf::config::constants::STORE_LOCATIONS_LONG + "=sparse";
   const int argc = 3;
   char* argv[argc] = {const_cast<char*>(""), const_cast<char*>(arg.c_str()),
                       const_cast<char*>("/tmp/dummyInput")};
@@ -356,9 +357,8 @@ TEST(CONFIG_Config, fromArgsStoreLocationsLongDense) {
   assertDefaultConfig(config);
   osm2rdf::util::CacheFile cf("/tmp/dummyInput");
 
-  const auto arg = "--" +
-                   osm2rdf::config::constants::STORE_LOCATIONS_LONG +
-                   "=dense";
+  const auto arg =
+      "--" + osm2rdf::config::constants::STORE_LOCATIONS_LONG + "=dense";
   const int argc = 3;
   char* argv[argc] = {const_cast<char*>(""), const_cast<char*>(arg.c_str()),
                       const_cast<char*>("/tmp/dummyInput")};
@@ -584,13 +584,13 @@ TEST(CONFIG_Config, fromArgsAddWayNodeOrderLong) {
   osm2rdf::util::CacheFile cf("/tmp/dummyInput");
 
   const auto arg =
-      "--" + osm2rdf::config::constants::ADD_WAY_NODE_ORDER_OPTION_LONG;
+      "--" + osm2rdf::config::constants::NO_MEMBER_TRIPLES_OPTION_LONG;
   const int argc = 3;
   char* argv[argc] = {const_cast<char*>(""), const_cast<char*>(arg.c_str()),
                       const_cast<char*>("/tmp/dummyInput")};
   config.fromArgs(argc, argv);
   ASSERT_EQ("", config.output.string());
-  ASSERT_TRUE(config.addWayNodeOrder);
+  ASSERT_TRUE(!config.addMemberTriples);
 }
 
 // ____________________________________________________________________________
@@ -608,7 +608,7 @@ TEST(CONFIG_Config, fromArgsAddWayNodeSpatialMetadataLong) {
   config.fromArgs(argc, argv);
   ASSERT_EQ("", config.output.string());
   ASSERT_TRUE(config.addWayNodeSpatialMetadata);
-  ASSERT_TRUE(config.addWayNodeOrder);
+  ASSERT_TRUE(config.addMemberTriples);
 }
 
 // ____________________________________________________________________________
@@ -658,6 +658,21 @@ TEST(CONFIG_Config, fromArgsSimplifyWKTLong) {
   config.fromArgs(argc, argv);
   ASSERT_EQ("", config.output.string());
   ASSERT_EQ(25, config.simplifyWKT);
+}
+
+// ____________________________________________________________________________
+TEST(CONFIG_Config, fromArgsNoBlankNodesLong) {
+  osm2rdf::config::Config config;
+  assertDefaultConfig(config);
+  osm2rdf::util::CacheFile cf("/tmp/dummyInput");
+
+  const auto arg = "--" + osm2rdf::config::constants::BLANK_NODES_OPTION_LONG;
+  const int argc = 3;
+  char* argv[argc] = {const_cast<char*>(""), const_cast<char*>(arg.c_str()),
+                      const_cast<char*>("/tmp/dummyInput")};
+  config.fromArgs(argc, argv);
+  ASSERT_EQ("", config.output.string());
+  ASSERT_TRUE(config.noBlankNodes);
 }
 
 // ____________________________________________________________________________
@@ -776,7 +791,8 @@ TEST(CONFIG_Config, getInfoHasSections) {
   ASSERT_THAT(res,
               ::testing::HasSubstr(osm2rdf::config::constants::SECTION_FACTS));
   ASSERT_THAT(
-      res, ::testing::HasSubstr(osm2rdf::config::constants::SECTION_CONTAINS));
+      res, ::testing::HasSubstr(
+               osm2rdf::config::constants::SECTION_SPATIAL_RELATION_TRIPLES));
   ASSERT_THAT(res, ::testing::HasSubstr(
                        osm2rdf::config::constants::SECTION_MISCELLANEOUS));
 }
@@ -877,11 +893,11 @@ TEST(CONFIG_Config, getInfoAddWayMetadata) {
 TEST(CONFIG_Config, getInfoAddWayNodeOrder) {
   osm2rdf::config::Config config;
   assertDefaultConfig(config);
-  config.addWayNodeOrder = true;
+  config.addMemberTriples = false;
 
   const std::string res = config.getInfo("");
   ASSERT_THAT(res, ::testing::HasSubstr(
-                       osm2rdf::config::constants::ADD_WAY_NODE_ORDER_INFO));
+                       osm2rdf::config::constants::NO_MEMBER_TRIPLES_INFO));
 }
 
 // ____________________________________________________________________________
@@ -927,6 +943,17 @@ TEST(CONFIG_Config, getInfoSimplifyWKT) {
   const std::string res = config.getInfo("");
   ASSERT_THAT(
       res, ::testing::HasSubstr(osm2rdf::config::constants::SIMPLIFY_WKT_INFO));
+}
+
+// ____________________________________________________________________________
+TEST(CONFIG_Config, getInfoNoBlankNodes) {
+  osm2rdf::config::Config config;
+  assertDefaultConfig(config);
+  config.noBlankNodes = true;
+
+  const std::string res = config.getInfo("");
+  ASSERT_THAT(
+      res, ::testing::HasSubstr(osm2rdf::config::constants::BLANK_NODES_INFO));
 }
 
 // ____________________________________________________________________________

@@ -253,6 +253,60 @@ TEST(TTL_WriterQLEVER, generateBlankNode) {
 }
 
 // ____________________________________________________________________________
+TEST(TTL_WriterQLEVER, generateSkolem) {
+  osm2rdf::config::Config config;
+  osm2rdf::ttl::Writer<osm2rdf::ttl::format::QLEVER> w{config, nullptr};
+  {
+    const std::string res = w.generateSkolem("1");
+    ASSERT_STREQ("genid:1", res.c_str());
+  }
+  {
+    const std::string res = w.generateSkolem("2");
+    ASSERT_STREQ("genid:2", res.c_str());
+  }
+  {
+    const std::string res = w.generateSkolem("3");
+    ASSERT_STREQ("genid:3", res.c_str());
+  }
+}
+
+// ____________________________________________________________________________
+TEST(TTL_WriterQLEVER, generateSkolemForRelationMember) {
+  osm2rdf::config::Config config;
+  osm2rdf::ttl::Writer<osm2rdf::ttl::format::QLEVER> w{config, nullptr};
+  {
+    const std::string res = w.generateSkolemForRelationMember(1, 2, "osmnode", 3);
+    ASSERT_STREQ("genid:r1n2p3", res.c_str());
+  }
+  {
+    const std::string res = w.generateSkolemForRelationMember(1, 2, "osmway", 3);
+    ASSERT_STREQ("genid:r1w2p3", res.c_str());
+  }
+  {
+    const std::string res = w.generateSkolemForRelationMember(1, 2, "ohmnode", 3);
+    ASSERT_STREQ("genid:r1n2p3", res.c_str());
+  }
+}
+
+// ____________________________________________________________________________
+TEST(TTL_WriterQLEVER, generateSkolemForWayMember) {
+  osm2rdf::config::Config config;
+  osm2rdf::ttl::Writer<osm2rdf::ttl::format::QLEVER> w{config, nullptr};
+  {
+    const std::string res = w.generateSkolemForWayMember(1, 1, 1);
+    ASSERT_STREQ("genid:w1n1p1", res.c_str());
+  }
+  {
+    const std::string res = w.generateSkolemForWayMember(2, 3, 4);
+    ASSERT_STREQ("genid:w2n3p4", res.c_str());
+  }
+  {
+    const std::string res = w.generateSkolemForWayMember(3, 5, 7);
+    ASSERT_STREQ("genid:w3n5p7", res.c_str());
+  }
+}
+
+// ____________________________________________________________________________
 TEST(TTL_WriterNT, generateIRI_ID) {
   osm2rdf::config::Config config;
   osm2rdf::ttl::Writer<osm2rdf::ttl::format::NT> w{config, nullptr};
@@ -704,8 +758,8 @@ TEST(TTL_WriterTTL, writeStatisticJson) {
   statsBuffer << statsIFStream.rdbuf();
 
   ASSERT_THAT(statsBuffer.str(), ::testing::HasSubstr("\"blankNodes\": 3"));
-  ASSERT_THAT(statsBuffer.str(), ::testing::HasSubstr("\"header\": 20"));
-  ASSERT_THAT(statsBuffer.str(), ::testing::HasSubstr("\"lines\": 25"));
+  ASSERT_THAT(statsBuffer.str(), ::testing::HasSubstr("\"header\": 25"));
+  ASSERT_THAT(statsBuffer.str(), ::testing::HasSubstr("\"lines\": 30"));
   ASSERT_THAT(statsBuffer.str(), ::testing::HasSubstr("\"triples\": 5"));
 
   // Cleanup
@@ -766,8 +820,8 @@ TEST(TTL_WriterQLEVER, writeStatisticJson) {
   statsBuffer << statsIFStream.rdbuf();
 
   ASSERT_THAT(statsBuffer.str(), ::testing::HasSubstr("\"blankNodes\": 3"));
-  ASSERT_THAT(statsBuffer.str(), ::testing::HasSubstr("\"header\": 20"));
-  ASSERT_THAT(statsBuffer.str(), ::testing::HasSubstr("\"lines\": 25"));
+  ASSERT_THAT(statsBuffer.str(), ::testing::HasSubstr("\"header\": 25"));
+  ASSERT_THAT(statsBuffer.str(), ::testing::HasSubstr("\"lines\": 30"));
   ASSERT_THAT(statsBuffer.str(), ::testing::HasSubstr("\"triples\": 5"));
 
   // Cleanup
@@ -775,6 +829,37 @@ TEST(TTL_WriterQLEVER, writeStatisticJson) {
   std::cout.rdbuf(sbuf);
   std::filesystem::remove_all(tmpDir);
   ASSERT_FALSE(std::filesystem::exists(tmpDir));
+}
+
+// ____________________________________________________________________________
+TEST(TTL_Writer, writeSecondsAsISO) {
+  // Capture std::cout
+  std::stringstream buffer;
+  std::streambuf* sbuf = std::cout.rdbuf();
+  std::cout.rdbuf(buffer.rdbuf());
+
+  osm2rdf::config::Config config;
+  config.output = "";
+  config.numThreads = 1;  // set to one to avoid concurrency issues with the
+  // stringstream read buffer
+  config.outputCompress = osm2rdf::config::NONE;
+  config.mergeOutput = osm2rdf::util::OutputMergeMode::NONE;
+
+  osm2rdf::util::Output output{config, config.output};
+  output.open();
+  osm2rdf::ttl::Writer<osm2rdf::ttl::format::TTL> writer{config, &output};
+
+  writer.writeSecondsAsISO("s", "p", 1555936496);
+  output.flush();
+  output.close();
+
+  const std::string printedData = buffer.str();
+  ASSERT_THAT(
+      printedData,
+      ::testing::HasSubstr("s p \"2019-04-22T12:34:56\"^^xsd:dateTime .\n"));
+
+  // Cleanup
+  std::cout.rdbuf(sbuf);
 }
 
 }  // namespace osm2rdf::ttl
