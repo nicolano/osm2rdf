@@ -138,8 +138,8 @@ void osm2rdf::osm::OsmiumHandler<W>::handle() {
       prepReader.close();
       _locationHandler->finalizeNodes();
 
-      osmium::io::Reader dumpReader(input_file, osmium::osm_entity_bits::nwa,
-                                    osmium::io::read_meta::yes);
+      osmium::io::Reader dumpReader{input_file, osmium::osm_entity_bits::nwa,
+                                    osmium::io::read_meta::yes};
 
 #pragma omp parallel
       {
