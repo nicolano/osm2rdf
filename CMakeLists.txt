@@ -100,9 +100,10 @@ endif ()
 set(INSTALL_GMOCK OFF)
 set(INSTALL_GTEST OFF)
 
-
+set(POPL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/baidax/popl/include")
 find_package(POPL REQUIRED)
 include_directories(SYSTEM ${POPL_INCLUDE_DIR})
+set(PROTOZERO_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/mapbox/protozero/include")
 find_package(Protozero REQUIRED)
 include_directories(SYSTEM ${PROTOZERO_INCLUDE_DIR})
 set(OSMIUM_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/osmcode/libosmium/include")
