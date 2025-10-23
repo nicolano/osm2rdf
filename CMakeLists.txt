@@ -86,15 +86,15 @@ if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vendor/google/googletest/CMakeLists.
     message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif ()
 
-# zlib-ng
-set(ZLIB_COMPAT ON)
-set(WITH_GTEST OFF)
-set(ZLIB_ENABLE_TESTS OFF)
-add_subdirectory(vendor/zlib-ng/zlib-ng)
-
-set(ZLIB_USE_STATIC_LIBS ON)
-set(ZLIB_INCLUDE_DIR "${CMAKE_BINARY_DIR}/vendor/zlib-ng/zlib-ng")
-set(ZLIB_LIBRARY "${CMAKE_BINARY_DIR}/vendor/zlib-ng/zlib-ng/libz.a")
+# zlib-ng will be included in olu's main CMakeLists.txt
+#set(ZLIB_COMPAT ON)
+#set(WITH_GTEST OFF)
+#set(ZLIB_ENABLE_TESTS OFF)
+#add_subdirectory(vendor/zlib-ng/zlib-ng)
+#
+#set(ZLIB_USE_STATIC_LIBS ON)
+#set(ZLIB_INCLUDE_DIR "${CMAKE_BINARY_DIR}/vendor/zlib-ng/zlib-ng")
+#set(ZLIB_LIBRARY "${CMAKE_BINARY_DIR}/vendor/zlib-ng/zlib-ng/libz.a")
 
 # Disable installation of google stuff
 set(INSTALL_GMOCK OFF)
@@ -106,7 +106,7 @@ include_directories(SYSTEM ${POPL_INCLUDE_DIR})
 find_package(Protozero REQUIRED)
 include_directories(SYSTEM ${PROTOZERO_INCLUDE_DIR})
 set(OSMIUM_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/vendor/osmcode/libosmium/include")
-find_package(Osmium REQUIRED COMPONENTS pbf xml)
+find_package(Osmium 2.20 REQUIRED COMPONENTS pbf xml)
 include_directories(SYSTEM ${OSMIUM_INCLUDE_DIRS})
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
